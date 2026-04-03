@@ -112,6 +112,12 @@ docker run -p 5577:5577 ccxray
 - Node.js 18+
 - 無需其他相依套件（使用原生 `http`/`https`）
 
+## 作者的其他作品
+
+- [SourceAtlas](http://sourceatlas.io/) — 任何 codebase 的導航地圖
+- [AskRoundtable](https://github.com/AskRoundtable/expert-skills) — 讓你的 AI 像 Munger、Feynman、Paul Graham 一樣思考
+- 在 X 上追蹤 [@lis186](https://x.com/lis186) 獲取最新動態
+
 ## 授權
 
 MIT

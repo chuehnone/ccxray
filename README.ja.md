@@ -112,6 +112,12 @@ docker run -p 5577:5577 ccxray
 - Node.js 18+
 - その他の依存関係不要（ネイティブの`http`/`https`を使用）
 
+## 作者の他のプロジェクト
+
+- [SourceAtlas](http://sourceatlas.io/) — あらゆるコードベースへのマップ
+- [AskRoundtable](https://github.com/AskRoundtable/expert-skills) — AIをMunger、Feynman、Paul Grahamのように思考させる
+- Xで [@lis186](https://x.com/lis186) をフォローして最新情報をチェック
+
 ## ライセンス
 
 MIT

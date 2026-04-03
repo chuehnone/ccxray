@@ -112,6 +112,12 @@ docker run -p 5577:5577 ccxray
 - Node.js 18+
 - No other dependencies needed (uses native `http`/`https`)
 
+## Also by the author
+
+- [SourceAtlas](http://sourceatlas.io/) — Your map to any codebase
+- [AskRoundtable](https://github.com/AskRoundtable/expert-skills) — Make your AI think like Munger, Feynman, or Paul Graham
+- Follow [@lis186](https://x.com/lis186) on X for updates
+
 ## License
 
 MIT
