@@ -90,13 +90,8 @@ ccxray is a transparent HTTP proxy. It forwards requests to Anthropic unchanged,
 |---|---|---|
 | `PROXY_PORT` | `5577` | Port for proxy + dashboard (overridden by `--port`) |
 | `BROWSER` | — | Set to `none` to disable auto-open |
-| `STORAGE_BACKEND` | `local` | Storage adapter: `local` or `s3` |
-| `LOGS_DIR` | `./logs` | Log directory (local backend) |
+| `LOGS_DIR` | `./logs` | Log directory |
 | `AUTH_TOKEN` | _(none)_ | API key for access control (disabled when unset) |
-| `S3_BUCKET` | — | S3/R2 bucket name (s3 backend) |
-| `S3_REGION` | `auto` | AWS region (s3 backend) |
-| `S3_ENDPOINT` | — | Custom endpoint for R2/MinIO (s3 backend) |
-| `S3_PREFIX` | `logs/` | Key prefix in bucket (s3 backend) |
 
 Logs are stored in `./logs/` as `{timestamp}_req.json` and `{timestamp}_res.json`.
 

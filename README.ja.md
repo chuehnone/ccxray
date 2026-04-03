@@ -90,13 +90,8 @@ ccxrayは透過型HTTPプロキシです。リクエストをそのままAnthrop
 |---|---|---|
 | `PROXY_PORT` | `5577` | プロキシ + ダッシュボードのポート（`--port`で上書き） |
 | `BROWSER` | — | `none`に設定すると自動オープンを無効化 |
-| `STORAGE_BACKEND` | `local` | ストレージアダプタ: `local` または `s3` |
-| `LOGS_DIR` | `./logs` | ログディレクトリ（localバックエンド） |
+| `LOGS_DIR` | `./logs` | ログディレクトリ |
 | `AUTH_TOKEN` | _（なし）_ | アクセス制御用APIキー（未設定時は無効） |
-| `S3_BUCKET` | — | S3/R2バケット名（s3バックエンド） |
-| `S3_REGION` | `auto` | AWSリージョン（s3バックエンド） |
-| `S3_ENDPOINT` | — | R2/MinIO用カスタムエンドポイント（s3バックエンド） |
-| `S3_PREFIX` | `logs/` | バケット内のキープレフィックス（s3バックエンド） |
 
 ログは`./logs/`に`{timestamp}_req.json`と`{timestamp}_res.json`として保存されます。
 

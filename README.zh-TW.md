@@ -90,13 +90,8 @@ ccxray 是透明的 HTTP 代理。它將請求原封不動地轉發到 Anthropic
 |---|---|---|
 | `PROXY_PORT` | `5577` | 代理 + 儀表板的連接埠（`--port` 會覆蓋此值） |
 | `BROWSER` | — | 設為 `none` 可停用自動開啟 |
-| `STORAGE_BACKEND` | `local` | 儲存介面：`local` 或 `s3` |
-| `LOGS_DIR` | `./logs` | 日誌目錄（local 模式） |
+| `LOGS_DIR` | `./logs` | 日誌目錄 |
 | `AUTH_TOKEN` | _（無）_ | 存取控制用 API 金鑰（未設定時停用） |
-| `S3_BUCKET` | — | S3/R2 儲存桶名稱（s3 模式） |
-| `S3_REGION` | `auto` | AWS 區域（s3 模式） |
-| `S3_ENDPOINT` | — | 自訂端點，用於 R2/MinIO（s3 模式） |
-| `S3_PREFIX` | `logs/` | 儲存桶中的 key 前綴（s3 模式） |
 
 日誌儲存在 `./logs/`，格式為 `{timestamp}_req.json` 和 `{timestamp}_res.json`。
 
