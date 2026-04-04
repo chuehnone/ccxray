@@ -5,7 +5,7 @@ const path = require('path');
 const os = require('os');
 const http = require('http');
 
-const HUB_DIR = path.join(os.homedir(), '.ccxray');
+const HUB_DIR = process.env.CCXRAY_HOME || path.join(os.homedir(), '.ccxray');
 const HUB_LOCK_PATH = path.join(HUB_DIR, 'hub.json');
 const HUB_LOG_PATH = path.join(HUB_DIR, 'hub.log');
 const IDLE_TIMEOUT_MS = 5000;
