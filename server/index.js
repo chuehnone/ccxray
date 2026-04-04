@@ -402,11 +402,11 @@ async function startServer() {
   const actualPort = await tryListen(server, config.PORT, maxAttempts);
   rebuildIndexHTML(actualPort);
 
-  // Hub mode: write lockfile as readiness signal, start client lifecycle
-  if (hubMode || claudeMode) {
+  // Hub mode only: write lockfile as readiness signal, start client lifecycle
+  // Do NOT write lockfile in claudeMode with --port (that's independent mode)
+  if (hubMode) {
     hub.writeHubLock(actualPort, process.pid);
     hub.startDeadClientCheck();
-    // Graceful shutdown
     const cleanup = () => { hub.deleteHubLock(); process.exit(0); };
     process.on('SIGTERM', cleanup);
     process.on('SIGINT', cleanup);
