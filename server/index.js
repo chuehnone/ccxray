@@ -356,10 +356,23 @@ async function startClientMode(lock) {
   _origLog(`\x1b[90mccxray → http://localhost:${lock.port} (hub)\x1b[0m`);
 
   try {
-    const registered = await hub.registerClient(lock.port, process.pid, process.cwd());
-    if (!registered) {
+    const reg = await hub.registerClient(lock.port, process.pid, process.cwd());
+    if (!reg) {
       console.error('\x1b[31mHub rejected client registration.\x1b[0m');
       process.exit(1);
+    }
+
+    // Auto-open browser for the first client connecting to this hub
+    if (reg.firstClient) {
+      const noOpen = process.argv.includes('--no-browser')
+        || process.env.BROWSER === 'none'
+        || process.env.CI
+        || process.env.SSH_TTY;
+      if (!noOpen) {
+        const { exec } = require('child_process');
+        const cmd = process.platform === 'darwin' ? 'open' : process.platform === 'win32' ? 'start' : 'xdg-open';
+        exec(`${cmd} http://localhost:${lock.port}`);
+      }
     }
   } catch (err) {
     console.error(`\x1b[31mFailed to register with hub: ${err.message}\x1b[0m`);

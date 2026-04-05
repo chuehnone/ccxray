@@ -198,8 +198,12 @@ function registerClient(port, pid, cwd) {
       headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) },
       timeout: 3000,
     }, res => {
-      res.resume();
-      resolve(res.statusCode === 200);
+      let data = '';
+      res.on('data', chunk => { data += chunk; });
+      res.on('end', () => {
+        if (res.statusCode !== 200) return resolve(null);
+        try { resolve(JSON.parse(data)); } catch { resolve(null); }
+      });
     });
     req.on('error', reject);
     req.on('timeout', () => { req.destroy(); reject(new Error('register timeout')); });
@@ -319,9 +323,10 @@ function handleHubRoutes(clientReq, clientRes) {
     clientReq.on('end', () => {
       try {
         const { pid, cwd } = JSON.parse(body);
+        const wasEmpty = clients.size === 0;
         addClient(pid, cwd);
         clientRes.writeHead(200, { 'Content-Type': 'application/json' });
-        clientRes.end(JSON.stringify({ ok: true }));
+        clientRes.end(JSON.stringify({ ok: true, firstClient: wasEmpty }));
       } catch {
         clientRes.writeHead(400);
         clientRes.end('Bad request');

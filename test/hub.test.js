@@ -210,7 +210,8 @@ describe('hub server routes', () => {
 
   it('POST /_api/hub/register → adds client', async () => {
     const res = await httpPost(port, '/_api/hub/register', { pid: 33333, cwd: '/test' });
-    assert.deepEqual(res, { ok: true });
+    assert.equal(res.ok, true);
+    assert.equal(typeof res.firstClient, 'boolean');
     const status = await httpGet(port, '/_api/hub/status');
     assert.ok(status.clients.some(c => c.pid === 33333));
   });
