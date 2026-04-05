@@ -548,7 +548,177 @@ describe('SSE streaming proxy', () => {
   });
 });
 
+// ── Intercept lifecycle E2E ──────────────────────────────────────────
+
+describe('Intercept lifecycle', () => {
+  let mockUpstream;
+  let mockPort;
+  let proxyChild;
+  let proxyPort;
+  const TEST_SESSION = 'aaaabbbb-cccc-dddd-eeee-ffffffffffff';
+
+  function makeRequestBody(content) {
+    return JSON.stringify({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 100,
+      messages: [{ role: 'user', content }],
+      metadata: { user_id: JSON.stringify({ session_id: TEST_SESSION }) },
+    });
+  }
+
+  before(async () => {
+    mockUpstream = http.createServer((req, res) => {
+      let body = '';
+      req.on('data', c => { body += c; });
+      req.on('end', () => {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+          id: 'msg_intercept',
+          type: 'message',
+          role: 'assistant',
+          content: [{ type: 'text', text: 'approved response' }],
+          model: 'claude-sonnet-4-20250514',
+          usage: { input_tokens: 10, output_tokens: 5 },
+        }));
+      });
+    });
+    await new Promise(r => mockUpstream.listen(0, r));
+    mockPort = mockUpstream.address().port;
+
+    proxyPort = await findFreePort();
+    proxyChild = spawnServer(['--port', String(proxyPort)], {
+      env: {
+        ANTHROPIC_TEST_HOST: 'localhost',
+        ANTHROPIC_TEST_PORT: String(mockPort),
+        ANTHROPIC_TEST_PROTOCOL: 'http',
+      },
+    });
+    await waitForPort(proxyPort);
+
+    // Establish session by sending initial request
+    const initBody = makeRequestBody('init session');
+    await new Promise((resolve, reject) => {
+      const req = http.request(`http://localhost:${proxyPort}/v1/messages`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(initBody), 'x-api-key': 'k', 'anthropic-version': '2023-06-01' },
+      }, res => { res.resume(); res.on('end', resolve); });
+      req.on('error', reject);
+      req.end(initBody);
+    });
+  });
+
+  after(async () => {
+    await killAndWait(proxyChild);
+    await new Promise(r => mockUpstream.close(r));
+  });
+
+  it('toggle intercept on/off', async () => {
+    // Enable intercept
+    const on = await httpPost(proxyPort, '/_api/intercept/toggle', { sessionId: TEST_SESSION });
+    assert.equal(on.enabled, true);
+    assert.equal(on.sessionId, TEST_SESSION);
+
+    // Disable intercept
+    const off = await httpPost(proxyPort, '/_api/intercept/toggle', { sessionId: TEST_SESSION });
+    assert.equal(off.enabled, false);
+  });
+
+  it('intercept → approve → request forwarded', async () => {
+    // Enable intercept
+    await httpPost(proxyPort, '/_api/intercept/toggle', { sessionId: TEST_SESSION });
+
+    // Connect SSE to catch pending_request event
+    const pendingIdPromise = waitForSSEEvent(proxyPort, 'pending_request');
+
+    // Send request — should be held
+    const body = makeRequestBody('intercept me');
+    const responsePromise = sendProxyRequest(proxyPort, body);
+
+    // Wait for SSE to tell us the pending request ID
+    const pendingId = await pendingIdPromise;
+    assert.ok(pendingId, 'Should receive pending_request via SSE');
+
+    // Approve the request
+    const approveResult = await httpPost(proxyPort, `/_api/intercept/${encodeURIComponent(pendingId)}/approve`, {});
+    assert.equal(approveResult.ok, true);
+
+    // Original request should complete
+    const response = await responsePromise;
+    assert.equal(response.status, 200);
+    assert.ok(response.body.includes('approved response'));
+
+    // Disable intercept
+    await httpPost(proxyPort, '/_api/intercept/toggle', { sessionId: TEST_SESSION });
+  });
+
+  it('intercept → reject → client gets 499', async () => {
+    // Enable intercept
+    await httpPost(proxyPort, '/_api/intercept/toggle', { sessionId: TEST_SESSION });
+
+    const pendingIdPromise = waitForSSEEvent(proxyPort, 'pending_request');
+
+    const body = makeRequestBody('reject me');
+    const responsePromise = sendProxyRequest(proxyPort, body);
+
+    const pendingId = await pendingIdPromise;
+    assert.ok(pendingId, 'Should receive pending_request via SSE');
+
+    // Reject the request
+    const rejectResult = await httpPost(proxyPort, `/_api/intercept/${encodeURIComponent(pendingId)}/reject`, {});
+    assert.equal(rejectResult.ok, true);
+
+    // Client should get 499
+    const response = await responsePromise;
+    assert.equal(response.status, 499);
+    assert.ok(response.body.includes('request_rejected'));
+
+    // Cleanup
+    await httpPost(proxyPort, '/_api/intercept/toggle', { sessionId: TEST_SESSION });
+  });
+});
+
 // ── Helpers ─────────────────────────────────────────────────────────
+
+function waitForSSEEvent(port, eventType, timeoutMs = 5000) {
+  return new Promise((resolve, reject) => {
+    const req = http.get(`http://localhost:${port}/_events`, res => {
+      let buf = '';
+      const timer = setTimeout(() => { req.destroy(); reject(new Error(`SSE timeout waiting for ${eventType}`)); }, timeoutMs);
+      res.on('data', chunk => {
+        buf += chunk.toString();
+        const lines = buf.split('\n');
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          try {
+            const data = JSON.parse(line.slice(6));
+            if (data._type === eventType) {
+              clearTimeout(timer);
+              req.destroy();
+              resolve(data.requestId || data.id || null);
+              return;
+            }
+          } catch {}
+        }
+      });
+    });
+    req.on('error', () => {}); // ignore destroy errors
+  });
+}
+
+function sendProxyRequest(port, body) {
+  return new Promise((resolve, reject) => {
+    const req = http.request(`http://localhost:${port}/v1/messages`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body), 'x-api-key': 'k', 'anthropic-version': '2023-06-01' },
+    }, res => {
+      let data = '';
+      res.on('data', c => { data += c; });
+      res.on('end', () => resolve({ status: res.statusCode, body: data }));
+    });
+    req.on('error', reject);
+    req.end(body);
+  });
+}
 
 function httpGet(port, urlPath) {
   return new Promise((resolve, reject) => {
