@@ -481,6 +481,20 @@ async function startServer() {
     await startClientMode(lock);
   } catch (err) {
     console.error(`\x1b[31m${err.message}\x1b[0m`);
+    // Show last hub log lines so user doesn't have to open the file
+    const fs = require('fs');
+    try {
+      const log = fs.readFileSync(hub.HUB_LOG_PATH, 'utf8');
+      const lines = log.trim().split('\n');
+      const lastErrors = lines.filter(l => /error|EADDRINUSE/i.test(l)).slice(-3);
+      if (lastErrors.length) {
+        console.error('\x1b[33mHub log:\x1b[0m');
+        lastErrors.forEach(l => console.error(`  ${l.replace(/\x1b\[[0-9;]*m/g, '')}`));
+      }
+      if (lines.some(l => /EADDRINUSE|already in use/i.test(l))) {
+        console.error(`\x1b[33mSuggestion: another process is using port ${config.PORT}. Use --port <other> or kill the process.\x1b[0m`);
+      }
+    } catch {}
     process.exit(1);
   }
 })();
