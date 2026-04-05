@@ -251,7 +251,7 @@ describe('hub discovery', () => {
 
   it('returns null when pid alive but health check fails', async () => {
     // Write lockfile with our own pid but a port nothing is listening on
-    hub.writeHubLock(19999, process.pid);
+    hub.writeHubLock(1, process.pid); // port 1: privileged, guaranteed no listener
     const result = await hub.discoverHub();
     assert.equal(result, null);
     assert.equal(hub.readHubLock(), null);
@@ -357,7 +357,7 @@ describe('orphan hub probe', () => {
 
 describe('checkHubHealth', () => {
   it('returns false for port with no server', async () => {
-    const result = await hub.checkHubHealth(19998, 500);
+    const result = await hub.checkHubHealth(1, 500); // port 1: privileged, no listener
     assert.equal(result, false);
   });
 
