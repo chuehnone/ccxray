@@ -269,6 +269,7 @@ function handleSSEResponse(ctx, proxyRes, clientRes) {
     // Track in-flight writes so lazy-load can await them
     entry._writePromise = Promise.all([ctx.reqWritePromise, resWritePromise].filter(Boolean));
     store.entries.push(entry);
+    store.trimEntries();
     broadcast(entry);
 
     // Persist to index (fire-and-forget after broadcast)
@@ -364,6 +365,7 @@ function handleNonSSEResponse(ctx, proxyRes, clientRes) {
     };
     entry._writePromise = Promise.all([ctx.reqWritePromise, resWritePromise].filter(Boolean));
     store.entries.push(entry);
+    store.trimEntries();
     broadcast(entry);
 
     const indexLine = JSON.stringify({

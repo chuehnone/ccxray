@@ -89,6 +89,7 @@ async function restoreFromLogs() {
     }
     restored++;
   }
+  store.trimEntries();
   console.timeEnd('restore:parse');
 
   // 3. Build version index from shared/ system prompts (scans a handful of small files)

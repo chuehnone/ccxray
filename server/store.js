@@ -1,8 +1,15 @@
 'use strict';
 
 // ── In-memory store & SSE clients ───────────────────────────────────
+const MAX_ENTRIES = parseInt(process.env.CCXRAY_MAX_ENTRIES || '5000', 10);
 const entries = [];
 const sseClients = [];
+
+function trimEntries() {
+  if (entries.length > MAX_ENTRIES) {
+    entries.splice(0, entries.length - MAX_ENTRIES);
+  }
+}
 
 // ── Rate limit state (from Anthropic response headers) ──────────────
 let rateLimitState = null;
@@ -78,7 +85,9 @@ function setInterceptTimeout(val) { interceptTimeout = val; }
 function getCurrentSessionId() { return currentSessionId; }
 
 module.exports = {
+  MAX_ENTRIES,
   entries,
+  trimEntries,
   sseClients,
   getRateLimitState,
   setRateLimitState,

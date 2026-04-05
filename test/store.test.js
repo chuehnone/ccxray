@@ -22,6 +22,38 @@ describe('store', () => {
     });
   });
 
+  describe('trimEntries eviction', () => {
+    it('trims entries to MAX_ENTRIES', () => {
+      const store = require('../server/store');
+      const startLen = store.entries.length;
+
+      // Push entries beyond limit
+      const testLimit = store.MAX_ENTRIES;
+      for (let i = 0; i < testLimit + 50; i++) {
+        store.entries.push({ id: `trim-test-${i}`, req: null, res: null });
+      }
+      assert.ok(store.entries.length > testLimit);
+
+      store.trimEntries();
+      assert.equal(store.entries.length, testLimit, `Should trim to ${testLimit}`);
+
+      // Oldest entries should be gone, newest kept
+      assert.equal(store.entries[store.entries.length - 1].id, `trim-test-${testLimit + 49}`);
+
+      // Clean up
+      store.entries.splice(startLen);
+    });
+
+    it('does not trim when under limit', () => {
+      const store = require('../server/store');
+      const startLen = store.entries.length;
+      store.entries.push({ id: 'under-limit', req: null, res: null });
+      store.trimEntries();
+      assert.equal(store.entries.length, startLen + 1);
+      store.entries.pop();
+    });
+  });
+
   describe('entry memory release', () => {
     it('releases req/res memory after nulling (requires --expose-gc)', async () => {
       if (typeof global.gc !== 'function') {
