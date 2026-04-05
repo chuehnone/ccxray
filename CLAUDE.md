@@ -10,7 +10,9 @@ A transparent HTTP proxy that sits between Claude Code and the Anthropic API. It
 
 ```bash
 npx ccxray claude                                # One command: proxy + Claude Code
-ccxray --port 8080 claude                        # Custom port
+ccxray claude                                    # Multiple terminals auto-share one hub
+ccxray --port 8080 claude                        # Custom port (opts out of hub, independent server)
+ccxray status                                    # Show hub info and connected clients
 ccxray                                           # Proxy + dashboard only
 npm run dev                                      # Dev mode (auto-restart on server/public changes)
 npm test                                         # Run tests
@@ -39,6 +41,7 @@ No build step. No linting. Restart to apply changes.
 | `server/routes/sse.js` | SSE endpoint |
 | `server/routes/intercept.js` | Intercept toggle/approve/reject/timeout |
 | `server/routes/costs.js` | Cost budget endpoints |
+| `server/hub.js` | Multi-project hub: lockfile (`~/.ccxray/hub.json`), discovery, client registration, idle shutdown, crash auto-recovery |
 | `server/auth.js` | API key auth middleware (enabled via `AUTH_TOKEN` env) |
 | `server/storage/` | Storage adapters (local filesystem, S3/R2) |
 
@@ -58,6 +61,25 @@ No build step. No linting. Restart to apply changes.
 | `public/keyboard-nav.js` | Arrow keys, Enter, Escape |
 | `public/quota-ticker.js` | Topbar quota ticker |
 
+### Hub Mode (multi-project)
+
+```
+ccxray claude (1st)  → fork detached hub → connect as client → spawn claude
+ccxray claude (2nd)  → discover hub via ~/.ccxray/hub.json → connect as client → spawn claude
+                              ↓
+                     Hub (detached process)
+                       ├── HTTP proxy on :5577
+                       ├── Dashboard (same port)
+                       ├── Client registry (register/unregister/health)
+                       └── Idle shutdown (5s after last client exits)
+```
+
+- Hub lockfile: `~/.ccxray/hub.json` (written after `listen()` succeeds = readiness signal)
+- Hub log: `~/.ccxray/hub.log` (stdout/stderr of detached process)
+- `--port` opts out of hub mode entirely (independent server)
+- Crash recovery: clients monitor hub pid every 5s, auto-fork new hub using port as mutex
+- Version check: semver major mismatch → reject, minor → warn, patch → silent
+
 ### Data Flow
 
 ```
@@ -65,3 +87,5 @@ Claude Code → proxy receives request → detect session → [intercept check]
   → log {id}_req.json → forward to Anthropic → capture SSE response
   → log {id}_res.json → calculate cost → broadcast via SSE → dashboard updates
 ```
+
+Logs stored in `~/.ccxray/logs/` (not package-relative). Respects `CCXRAY_HOME` env var.
