@@ -55,12 +55,70 @@ function extractSessionId(req) {
   return m ? m[1] : null;
 }
 
+// Bare subagent requests: no session_id, no system prompt, no tools, 1-2 messages.
+// These are Claude Code's Agent tool kickoff calls that lack any identifying metadata.
+function isLikelySubagent(req) {
+  if (extractSessionId(req)) return false;      // has explicit session → not orphan
+  if (extractCwd(req)) return false;             // has system prompt with cwd → not bare
+  if (req?.tools?.length) return false;           // has tool definitions → not bare
+  if ((req?.messages?.length || 0) > 2) return false;
+  // Require metadata to be absent or empty (genuine API callers usually set metadata)
+  const meta = req?.metadata;
+  if (meta && Object.keys(meta).length > 0) return false;
+  return true;
+}
+
+// Find the best parent session for an orphan subagent request.
+// Scoring: inflight sessions get massive priority boost, then sorted by recency.
+// Only considers sessions active within the last 30s to avoid stale attribution.
+function inferParentSession() {
+  const now = Date.now();
+  const WINDOW_MS = 30000;
+  let best = null, bestScore = -1;
+
+  for (const [sid, meta] of Object.entries(sessionMeta)) {
+    if (sid === 'direct-api') continue;
+    const seenAt = meta.lastSeenAt || 0;
+    if (now - seenAt > WINDOW_MS) continue;
+
+    const inflight = (activeRequests[sid] || 0) > 0;
+    // Inflight sessions score 1e13 + recency; idle sessions score just recency
+    const score = (inflight ? 1e13 : 0) + seenAt;
+    if (score > bestScore) {
+      best = sid;
+      bestScore = score;
+    }
+  }
+  return best;
+}
+
 function detectSession(req) {
   const realId = extractSessionId(req);
-  const isNew = realId ? (realId !== currentSessionId) : (!currentSessionId || (req?.messages?.length || 0) < lastMsgCount);
+
+  // Explicit session_id → authoritative
+  if (realId) {
+    const isNew = realId !== currentSessionId;
+    if (isNew) {
+      sessionCounter++;
+      currentSessionId = realId;
+    }
+    lastMsgCount = req?.messages?.length || 0;
+    return { sessionId: currentSessionId, isNewSession: isNew };
+  }
+
+  // Likely subagent → infer parent, never pollute global state
+  if (isLikelySubagent(req)) {
+    const parent = inferParentSession();
+    if (parent) return { sessionId: parent, isNewSession: false, inferred: true };
+    // No recent session → keep as-is, don't create spurious session
+    return { sessionId: currentSessionId || 'direct-api', isNewSession: false, inferred: true };
+  }
+
+  // Non-subagent without session_id: original heuristic
+  const isNew = !currentSessionId || (req?.messages?.length || 0) < lastMsgCount;
   if (isNew) {
     sessionCounter++;
-    currentSessionId = realId || 'direct-api';
+    currentSessionId = 'direct-api';
   }
   lastMsgCount = req?.messages?.length || 0;
   return { sessionId: currentSessionId, isNewSession: isNew };

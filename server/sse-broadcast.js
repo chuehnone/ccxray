@@ -15,6 +15,7 @@ function summarizeEntry(entry) {
     toolCount: entry.toolCount || 0,
     toolCalls: entry.toolCalls || [],
     isSubagent: entry.isSubagent || false,
+    sessionInferred: entry.sessionInferred || false,
     title: entry.title || null,
     stopReason: entry.stopReason || '',
     thinkingDuration: entry.thinkingDuration || null,

@@ -261,6 +261,7 @@ function handleSSEResponse(ctx, proxyRes, clientRes) {
       toolCount: parsedBody?.tools?.length || 0,
       toolCalls: helpers.extractToolCalls(parsedBody?.messages),
       isSubagent: !store.extractCwd(parsedBody),
+      sessionInferred: ctx.sessionInferred || false,
       title,
       stopReason,
       sysHash: ctx.sysHash || null,
@@ -276,7 +277,7 @@ function handleSSEResponse(ctx, proxyRes, clientRes) {
     const indexLine = JSON.stringify({
       id, ts: ctx.ts, sessionId,
       model: entry.model, msgCount: entry.msgCount, toolCount: entry.toolCount,
-      toolCalls: entry.toolCalls, isSubagent: entry.isSubagent,
+      toolCalls: entry.toolCalls, isSubagent: entry.isSubagent, sessionInferred: entry.sessionInferred,
       cwd: entry.cwd, isSSE: true,
       usage, cost: costInfo, maxContext,
       stopReason, title, thinkingDuration,
@@ -358,6 +359,7 @@ function handleNonSSEResponse(ctx, proxyRes, clientRes) {
       toolCount: parsedBody?.tools?.length || 0,
       toolCalls: helpers.extractToolCalls(parsedBody?.messages),
       isSubagent: !store.extractCwd(parsedBody),
+      sessionInferred: ctx.sessionInferred || false,
       title,
       stopReason,
       sysHash: ctx.sysHash || null,
@@ -371,7 +373,7 @@ function handleNonSSEResponse(ctx, proxyRes, clientRes) {
     const indexLine = JSON.stringify({
       id, ts: ctx.ts, sessionId,
       model: entry.model, msgCount: entry.msgCount, toolCount: entry.toolCount,
-      toolCalls: entry.toolCalls, isSubagent: entry.isSubagent,
+      toolCalls: entry.toolCalls, isSubagent: entry.isSubagent, sessionInferred: entry.sessionInferred,
       cwd: entry.cwd, isSSE: false,
       usage: null, cost: null, maxContext,
       stopReason, title, thinkingDuration: null,

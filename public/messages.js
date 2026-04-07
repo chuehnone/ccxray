@@ -639,16 +639,17 @@ function layoutMinimapBlocks(minimapEl) {
   const maxContext = parseInt(blocksContainer.dataset.maxContext) || 200000;
   const totalTokens = parseInt(blocksContainer.dataset.totalTokens) || 1;
 
-  // Blocks region height = proportion of context used
+  // Blocks region height = proportion of context used (proportional to container)
   const usedRatio = Math.min(1, totalTokens / maxContext);
-  // Subtract cache bar (4px) from available height
   const cacheBar = minimapEl.querySelector('.minimap-cache-bar');
   const cacheBarH = cacheBar ? cacheBar.offsetHeight : 0;
   const availH = containerH - cacheBarH;
-  const blocksH = Math.max(blockEls.length, usedRatio * availH);
+  // Proportional height is authoritative — never exceed it for visual accuracy.
+  // Minimum 20px so near-empty contexts still show something visible.
+  const blocksH = Math.max(20, usedRatio * availH);
 
-  // Scale factor — fit all blocks within the proportional region
-  // Use actual sum of block tokens (not apiTotal) so blocks fill the region completely
+  // Scale factor — fit all blocks within the proportional region.
+  // Each block gets at least 0.5px, but total is capped to blocksH.
   let blockTokenSum = 0;
   for (const el of blockEls) blockTokenSum += parseInt(el.dataset.tokens) || 1;
   const scale = blocksH / (blockTokenSum || 1);

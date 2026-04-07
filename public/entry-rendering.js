@@ -265,7 +265,7 @@ function addEntry(e) {
     req: e.req || null, res: e.res || null, reqLoaded: !!(e.req || e.res),
     msgCount, toolCount, toolCalls: e.toolCalls || {}, stopReason,
     status: e.status, elapsed: e.elapsed, method: e.method, id: e.id,
-    isSubagent, displayNum, ctxUsed, isCompacted, receivedAt: e.receivedAt || null,
+    isSubagent, sessionInferred: e.sessionInferred || false, displayNum, ctxUsed, isCompacted, receivedAt: e.receivedAt || null,
     thinkingDuration: e.thinkingDuration || null,
     duplicateToolCalls: e.duplicateToolCalls || null,
   });
@@ -290,6 +290,7 @@ function addEntry(e) {
   const indent = isSubagent ? '<span class="sub-indent">╎</span>' : '';
   const titleHtml = e.title ? '<div class="turn-title">' + escapeHtml(e.title) + '</div>' : '';
   const compactBadge = isCompacted ? '<span class="compact-badge">compact</span>' : '';
+  const inferredBadge = (e.sessionInferred) ? '<span class="inferred-badge" title="Session attributed by inference (no explicit session ID)">inferred</span>' : '';
   const ctxMax = e.maxContext || DEFAULT_MAX_CTX;
   const ctxPct = Math.min(100, ctxUsed / ctxMax * 100);
   const seg = (tokens, color) => tokens > 0
@@ -308,7 +309,7 @@ function addEntry(e) {
     '<div class="turn-line1">' + indent +
       '<span class="turn-num">' + (isSubagent ? '' : '#') + displayNum + '</span>' +
       '<span class="turn-model">' + escapeHtml(shortModel) + '</span>' +
-      compactBadge +
+      compactBadge + inferredBadge +
     '</div>' +
     titleHtml +
     '<div class="turn-line2">' +

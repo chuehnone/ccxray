@@ -984,9 +984,12 @@ function renderSectionsCol(idx) {
   const subBadge = isSubagent
     ? ' <span style="font-size:10px;background:var(--orange);color:#000;border-radius:3px;padding:0 4px;margin-left:4px">sub</span>'
     : '';
+  const inferBadge = e.sessionInferred
+    ? ' <span style="font-size:10px;border:1px dashed var(--yellow);color:var(--yellow);border-radius:3px;padding:0 4px;margin-left:4px" title="Session attributed by inference">inferred</span>'
+    : '';
 
   let html = '<div class="col-header">';
-  html += '<div class="ch-line1"><span style="color:var(--dim)">' + (isSubagent ? '' : '#') + escapeHtml(displayNum) + '</span> <span style="color:var(--purple)">' + escapeHtml(shortModel) + '</span>' + subBadge + '</div>';
+  html += '<div class="ch-line1"><span style="color:var(--dim)">' + (isSubagent ? '' : '#') + escapeHtml(displayNum) + '</span> <span style="color:var(--purple)">' + escapeHtml(shortModel) + '</span>' + subBadge + inferBadge + '</div>';
   html += '<div class="ch-line2"><span class="' + statusClass + '">' + e.status + '</span> · 🤖 ' + (e.elapsed || '?') + 's';
   if (stopReason) html += ' · ' + escapeHtml(stopReason);
   if (e.thinkingDuration) html += ' · <span style="color:var(--purple)">🧠 ' + e.thinkingDuration.toFixed(1) + 's</span>';

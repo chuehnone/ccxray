@@ -160,7 +160,7 @@ const server = http.createServer((clientReq, clientRes) => {
         .catch(e => console.error('Write req.json failed:', e.message));
     }
 
-    const { sessionId: reqSessionId, isNewSession } = parsedBody
+    const { sessionId: reqSessionId, isNewSession, inferred: sessionInferred } = parsedBody
       ? store.detectSession(parsedBody)
       : { sessionId: store.getCurrentSessionId(), isNewSession: false };
 
@@ -222,7 +222,7 @@ const server = http.createServer((clientReq, clientRes) => {
     delete fwdHeaders['accept-encoding'];
     fwdHeaders['host'] = config.ANTHROPIC_HOST;
 
-    const ctx = { id, ts, startTime, parsedBody, rawBody, clientReq, clientRes, fwdHeaders, reqSessionId, reqWritePromise, sysHash, toolsHash };
+    const ctx = { id, ts, startTime, parsedBody, rawBody, clientReq, clientRes, fwdHeaders, reqSessionId, reqWritePromise, sysHash, toolsHash, sessionInferred };
 
     // ── Intercept check ──
     const lastStop = store.sessionMeta[reqSessionId]?.lastStopReason;
