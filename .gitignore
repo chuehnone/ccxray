@@ -7,3 +7,4 @@ pricing-cache.json
 openspec/
 .specstory/
 .vscode/
+.claude/worktrees/
