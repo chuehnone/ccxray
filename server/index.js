@@ -488,12 +488,17 @@ async function startServer() {
     return;
   }
 
-  // No hub found: fork a hub, then connect as client
-  hub.forkHub(config.PORT);
+  // No hub found: acquire fork lock to prevent duplicate hub forks
+  const acquired = hub.tryAcquireForkLock();
+  if (acquired) {
+    hub.forkHub(config.PORT);
+  }
   try {
     const lock = await hub.waitForHubReady();
+    if (acquired) hub.releaseForkLock();
     await startClientMode(lock);
   } catch (err) {
+    if (acquired) hub.releaseForkLock();
     console.error(`\x1b[31m${err.message}\x1b[0m`);
     // Show last hub log lines so user doesn't have to open the file
     const fs = require('fs');

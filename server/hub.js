@@ -8,6 +8,8 @@ const http = require('http');
 const HUB_DIR = process.env.CCXRAY_HOME || path.join(os.homedir(), '.ccxray');
 const HUB_LOCK_PATH = path.join(HUB_DIR, 'hub.json');
 const HUB_LOG_PATH = path.join(HUB_DIR, 'hub.log');
+const FORK_LOCK_PATH = path.join(HUB_DIR, 'hub.fork.lock');
+const FORK_LOCK_STALE_MS = 15000;
 const IDLE_TIMEOUT_MS = 5000;
 const DEAD_CLIENT_CHECK_MS = 30000;
 const HUB_HEALTH_CHECK_MS = 5000;
@@ -148,6 +150,45 @@ function checkVersionCompat(hubVersion) {
   }
 
   return { ok: true };
+}
+
+// ── Fork lock (prevents multiple clients from forking hubs simultaneously) ──
+
+function tryAcquireForkLock() {
+  ensureHubDir();
+  try {
+    fs.writeFileSync(FORK_LOCK_PATH, JSON.stringify({ pid: process.pid, at: Date.now() }), { flag: 'wx' });
+    return true;
+  } catch (err) {
+    if (err.code === 'EEXIST') {
+      // Check if the existing lock is stale
+      try {
+        const lock = JSON.parse(fs.readFileSync(FORK_LOCK_PATH, 'utf8'));
+        if (Date.now() - lock.at > FORK_LOCK_STALE_MS || !isPidAlive(lock.pid)) {
+          // Atomic rename to avoid TOCTOU: move stale lock aside, then try wx create.
+          // If another client races us, only one rename succeeds (the other gets ENOENT).
+          const staleTarget = FORK_LOCK_PATH + `.stale.${process.pid}`;
+          try {
+            fs.renameSync(FORK_LOCK_PATH, staleTarget);
+            fs.unlinkSync(staleTarget);
+          } catch {}
+          // Now attempt exclusive create — may fail if another client won the race
+          try {
+            fs.writeFileSync(FORK_LOCK_PATH, JSON.stringify({ pid: process.pid, at: Date.now() }), { flag: 'wx' });
+            return true;
+          } catch {
+            return false;
+          }
+        }
+      } catch {}
+      return false;
+    }
+    return false;
+  }
+}
+
+function releaseForkLock() {
+  try { fs.unlinkSync(FORK_LOCK_PATH); } catch {}
 }
 
 // ── Fork detached hub process ───────────────────────────────────────
@@ -369,10 +410,14 @@ function startHubMonitor(hubPid, hubPort, onRecovery) {
     console.error('\x1b[33mHub process died. Attempting recovery...\x1b[0m');
     deleteHubLock();
 
+    let acquired = false;
     try {
-      forkHub(hubPort);
+      acquired = tryAcquireForkLock();
+      if (acquired) forkHub(hubPort);
       const lock = await waitForHubReady();
+      if (acquired) releaseForkLock();
       if (lock.port !== hubPort) {
+        if (acquired) releaseForkLock();
         console.error(`\x1b[31mHub recovered on port ${lock.port} but Claude is using port ${hubPort}. Cannot recover.\x1b[0m`);
         try { process.kill(lock.pid, 'SIGTERM'); } catch {}
         return;
@@ -381,6 +426,7 @@ function startHubMonitor(hubPid, hubPort, onRecovery) {
       if (onRecovery) onRecovery(lock);
       startHubMonitor(lock.pid, lock.port, onRecovery);
     } catch (err) {
+      if (acquired) releaseForkLock();
       console.error(`\x1b[31mHub recovery failed: ${err.message}\x1b[0m`);
     }
   }, HUB_HEALTH_CHECK_MS);
@@ -400,6 +446,8 @@ module.exports = {
   probeHubStatus,
   discoverHub,
   checkVersionCompat,
+  tryAcquireForkLock,
+  releaseForkLock,
   forkHub,
   waitForHubReady,
   registerClient,

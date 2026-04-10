@@ -68,7 +68,7 @@ function forwardRequest(ctx) {
   });
 
   proxyReq.on('error', (err) => {
-    console.error(`\x1b[31m❌ PROXY ERROR: ${err.message}\x1b[0m`);
+    console.error(`\x1b[31m❌ PROXY ERROR: ${err.message || err.code || String(err)}\x1b[0m`);
     if (reqSessionId) {
       store.activeRequests[reqSessionId] = Math.max(0, (store.activeRequests[reqSessionId] || 1) - 1);
       broadcastSessionStatus(reqSessionId);

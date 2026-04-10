@@ -11,6 +11,9 @@ const SUBSCRIPTION_USD = 200;
 // 5-minute server-side cache
 let costsCache = null;
 const CACHE_TTL_MS = 5 * 60 * 1000;
+const WORKER_TIMEOUT_MS = 120_000;
+let lastFailureAt = 0;
+const FAILURE_BACKOFF_MS = 60_000;
 
 function streamUsageEntries() {
   return new Promise((resolve, reject) => {
@@ -19,8 +22,8 @@ function streamUsageEntries() {
     let stderrBuf = '';
     const timeout = setTimeout(() => {
       worker.kill();
-      reject(new Error('Worker timeout (60s)'));
-    }, 60_000);
+      reject(new Error(`Worker timeout (${WORKER_TIMEOUT_MS / 1000}s)`));
+    }, WORKER_TIMEOUT_MS);
     worker.stdout.on('data', (chunk) => chunks.push(chunk));
     worker.stderr.on('data', (chunk) => { stderrBuf += chunk; });
     worker.on('error', (err) => { clearTimeout(timeout); reject(err); });
@@ -166,6 +169,9 @@ let costsInflight = null;
 
 function startComputation() {
   if (costsInflight) return costsInflight;
+  if (lastFailureAt && (Date.now() - lastFailureAt) < FAILURE_BACKOFF_MS) {
+    return Promise.reject(new Error('Cost computation in backoff'));
+  }
   costsInflight = (async () => {
     try {
       const usageEntries = await streamUsageEntries();
@@ -174,8 +180,10 @@ function startComputation() {
       const monthly = groupByMonth(usageEntries);
       const data = { blocks, daily, monthly };
       costsCache = { data, computedAt: Date.now() };
+      lastFailureAt = 0;
       return data;
     } catch (err) {
+      lastFailureAt = Date.now();
       console.error('Cost computation failed:', err.message);
       throw err;
     } finally {
