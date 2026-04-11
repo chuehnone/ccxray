@@ -91,7 +91,7 @@ Connected clients (2):
 ## 仕組み
 
 ```
-Claude Code  ──►  ccxray (:5577)  ──►  api.anthropic.com
+Claude Code  ──►  ccxray (:5577)  ──►  api.anthropic.com（または ANTHROPIC_BASE_URL）
                       │
                       ▼
           ~/.ccxray/logs/ (JSON)
@@ -119,6 +119,8 @@ ccxrayは透過型HTTPプロキシです。リクエストをそのままAnthrop
 | `BROWSER` | — | `none`に設定すると自動オープンを無効化 |
 | `AUTH_TOKEN` | _（なし）_ | アクセス制御用APIキー（未設定時は無効） |
 | `CCXRAY_HOME` | `~/.ccxray` | hubロックファイル、ログ、hub.logの基本ディレクトリ |
+| `CCXRAY_MAX_ENTRIES` | `5000` | メモリ上の最大エントリ数（古いものから削除。ディスクログには影響なし） |
+| `ANTHROPIC_BASE_URL` | — | カスタム上流Anthropicエンドポイント（企業ゲートウェイなど）。ccxrayは起動時にこの値を読み取り、`api.anthropic.com`の代わりにそこへ転送します。`ANTHROPIC_TEST_*`が設定されている場合はそちらが優先されます。 |
 
 ログは`~/.ccxray/logs/`に`{timestamp}_req.json`と`{timestamp}_res.json`として保存されます。v1.0からアップグレードする場合、`./logs/`のログは初回起動時に自動的に移行されます。
 

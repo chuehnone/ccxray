@@ -7,9 +7,56 @@ const { createStorage } = require('./storage');
 
 // ── Config ──────────────────────────────────────────────────────────
 const PORT = parseInt(process.env.PROXY_PORT || '5577', 10);
-const ANTHROPIC_HOST = process.env.ANTHROPIC_TEST_HOST || 'api.anthropic.com';
-const ANTHROPIC_PORT = parseInt(process.env.ANTHROPIC_TEST_PORT || '443', 10);
-const ANTHROPIC_PROTOCOL = process.env.ANTHROPIC_TEST_PROTOCOL || 'https';
+
+// Snapshot ANTHROPIC_BASE_URL at module load time, before any child-process code
+// can overwrite it with ccxray's own proxy address.
+const _rawBaseUrl = process.env.ANTHROPIC_BASE_URL;
+
+/**
+ * @internal – exported for testability only
+ */
+function parseBaseUrl(rawUrl) {
+  if (!rawUrl) return null;
+  try {
+    const u = new URL(rawUrl);
+    const protocol = u.protocol.replace(/:$/, ''); // 'https:' → 'https'
+    const hostname = u.hostname;
+    const port = u.port ? parseInt(u.port, 10) : (protocol === 'https' ? 443 : 80);
+    return { protocol, hostname, port };
+  } catch {
+    console.warn(`[ccxray] Warning: ANTHROPIC_BASE_URL is not a valid URL ("${rawUrl}"); falling back to api.anthropic.com`);
+    return null;
+  }
+}
+
+// Priority: ANTHROPIC_TEST_* (test/CI overrides) > ANTHROPIC_BASE_URL > built-in defaults
+function resolveUpstream(env, proxyPort) {
+  if (env.ANTHROPIC_TEST_HOST || env.ANTHROPIC_TEST_PORT || env.ANTHROPIC_TEST_PROTOCOL) {
+    const host = env.ANTHROPIC_TEST_HOST || 'api.anthropic.com';
+    const port = parseInt(env.ANTHROPIC_TEST_PORT || '443', 10);
+    const protocol = env.ANTHROPIC_TEST_PROTOCOL || 'https';
+    const missing = ['ANTHROPIC_TEST_HOST', 'ANTHROPIC_TEST_PORT', 'ANTHROPIC_TEST_PROTOCOL']
+      .filter(k => !env[k]);
+    if (missing.length > 0 && missing.length < 3) {
+      console.warn(`[ccxray] Warning: partial ANTHROPIC_TEST_* override — ${missing.join(', ')} not set; resolved upstream: ${protocol}://${host}:${port}`);
+    }
+    return { host, port, protocol, source: 'test-override' };
+  }
+
+  const parsed = parseBaseUrl(env.ANTHROPIC_BASE_URL);
+  if (parsed) {
+    const { hostname: host, port, protocol } = parsed;
+    if (new Set(['localhost', '127.0.0.1', '::1']).has(host) && port === proxyPort) {
+      console.warn(`[ccxray] Warning: upstream ${protocol}://${host}:${port} points back at the proxy itself — requests will loop`);
+    }
+    return { host, port, protocol, source: 'ANTHROPIC_BASE_URL' };
+  }
+
+  return { host: 'api.anthropic.com', port: 443, protocol: 'https', source: 'default' };
+}
+
+const { host: ANTHROPIC_HOST, port: ANTHROPIC_PORT, protocol: ANTHROPIC_PROTOCOL, source: ANTHROPIC_BASE_URL_SOURCE } =
+  resolveUpstream(process.env, PORT);
 const LOGS_DIR = path.join(os.homedir(), '.ccxray', 'logs');
 const LEGACY_LOGS_DIR = path.join(__dirname, '..', 'logs');
 const RESTORE_DAYS = parseInt(process.env.RESTORE_DAYS || '3', 10);
@@ -86,10 +133,12 @@ module.exports = {
   ANTHROPIC_HOST,
   ANTHROPIC_PORT,
   ANTHROPIC_PROTOCOL,
+  ANTHROPIC_BASE_URL_SOURCE,
   LOGS_DIR,
   RESTORE_DAYS,
   storage,
   MODEL_CONTEXT_FALLBACK,
   DEFAULT_CONTEXT,
   getMaxContext,
+  parseBaseUrl,
 };

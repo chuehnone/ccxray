@@ -331,7 +331,12 @@ async function startClientMode(lock) {
     _origLog(`\x1b[33m${compat.warning}\x1b[0m`);
   }
 
-  _origLog(`\x1b[90mccxray → http://localhost:${lock.port} (hub)\x1b[0m`);
+  {
+    const upstreamSuffix = config.ANTHROPIC_BASE_URL_SOURCE === 'ANTHROPIC_BASE_URL'
+      ? `  →  ${config.ANTHROPIC_PROTOCOL}://${config.ANTHROPIC_HOST}:${config.ANTHROPIC_PORT} (from ANTHROPIC_BASE_URL)`
+      : '';
+    _origLog(`\x1b[90mccxray → http://localhost:${lock.port} (hub)${upstreamSuffix}\x1b[0m`);
+  }
 
   try {
     const reg = await hub.registerClient(lock.port, process.pid, process.cwd());
@@ -444,7 +449,9 @@ async function startServer() {
     console.log();
     console.log(`\x1b[35m🔌 Claude API Proxy listening on http://localhost:${actualPort}\x1b[0m`);
     console.log(`\x1b[90m   Dashboard → http://localhost:${actualPort}/`);
-    console.log(`   Forwarding to ${config.ANTHROPIC_HOST}`);
+    const upstreamUrl = `${config.ANTHROPIC_PROTOCOL}://${config.ANTHROPIC_HOST}:${config.ANTHROPIC_PORT}`;
+    const upstreamNote = config.ANTHROPIC_BASE_URL_SOURCE === 'ANTHROPIC_BASE_URL' ? ' (from ANTHROPIC_BASE_URL)' : '';
+    console.log(`   Upstream → ${upstreamUrl}${upstreamNote}`);
     console.log(`   Logs → ${config.LOGS_DIR}`);
     console.log();
     console.log(`   Usage: ANTHROPIC_BASE_URL=http://localhost:${actualPort} claude\x1b[0m`);

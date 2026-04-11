@@ -91,7 +91,7 @@ Automatic version detection with diff viewer. Browse system prompts across all a
 ## How It Works
 
 ```
-Claude Code  ──►  ccxray (:5577)  ──►  api.anthropic.com
+Claude Code  ──►  ccxray (:5577)  ──►  api.anthropic.com (or ANTHROPIC_BASE_URL)
                       │
                       ▼
               ~/.ccxray/logs/ (JSON)
@@ -120,6 +120,7 @@ ccxray is a transparent HTTP proxy. It forwards requests to Anthropic unchanged,
 | `AUTH_TOKEN` | _(none)_ | API key for access control (disabled when unset) |
 | `CCXRAY_HOME` | `~/.ccxray` | Base directory for hub lockfile, logs, and hub.log |
 | `CCXRAY_MAX_ENTRIES` | `5000` | Max in-memory entries (oldest evicted; disk logs unaffected) |
+| `ANTHROPIC_BASE_URL` | — | Custom upstream Anthropic endpoint (e.g. a corporate gateway). ccxray reads this at startup and forwards to it instead of `api.anthropic.com`. `ANTHROPIC_TEST_*` take precedence when set. |
 
 Logs are stored in `~/.ccxray/logs/` as `{timestamp}_req.json` and `{timestamp}_res.json`. Upgrading from v1.0? Logs previously in `./logs/` are automatically migrated on first run.
 

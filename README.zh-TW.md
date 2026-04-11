@@ -91,7 +91,7 @@ Connected clients (2):
 ## 運作原理
 
 ```
-Claude Code  ──►  ccxray (:5577)  ──►  api.anthropic.com
+Claude Code  ──►  ccxray (:5577)  ──►  api.anthropic.com（或 ANTHROPIC_BASE_URL）
                       │
                       ▼
                   ~/.ccxray/logs/ (JSON)
@@ -119,6 +119,8 @@ ccxray 是透明的 HTTP 代理。它將請求原封不動地轉發到 Anthropic
 | `BROWSER` | — | 設為 `none` 可停用自動開啟 |
 | `AUTH_TOKEN` | _（無）_ | 存取控制用 API 金鑰（未設定時停用） |
 | `CCXRAY_HOME` | `~/.ccxray` | 基底目錄，存放 hub lockfile、logs、hub.log |
+| `CCXRAY_MAX_ENTRIES` | `5000` | 記憶體中最多保留的條目數（最舊的會被淘汰；磁碟日誌不受影響） |
+| `ANTHROPIC_BASE_URL` | — | 自訂上游 Anthropic 端點（例如企業閘道）。ccxray 啟動時會讀取此值並轉發至該位址，而非 `api.anthropic.com`。設定了 `ANTHROPIC_TEST_*` 時以其為準。 |
 
 日誌儲存在 `~/.ccxray/logs/`，格式為 `{timestamp}_req.json` 和 `{timestamp}_res.json`。從 v1.0 升級？`./logs/` 中的日誌會在首次啟動時自動遷移。
 
