@@ -106,6 +106,10 @@ async function discoverHub(defaultPort) {
     const healthy = await checkHubHealth(lock.port);
     if (!healthy) {
       deleteHubLock();
+      // Do NOT kill lock.pid here: hub.json may be stale from a crash, and the pid
+      // may have been reused by an unrelated process. Sending SIGTERM to an arbitrary
+      // pid is unsafe. The hub startup retry loop (5 × 1s) handles the shutdown-race
+      // case where the port hasn't been released yet.
       return null;
     }
     return lock;
@@ -434,6 +438,31 @@ function startHubMonitor(hubPid, hubPort, onRecovery) {
   return interval;
 }
 
+// ── Port scanner (used by hub and Claude-mode startup) ──────────────
+
+function tryListen(srv, port, maxAttempts) {
+  return new Promise((resolve, reject) => {
+    let attempt = 0;
+    function onError(err) {
+      if (err.code === 'EADDRINUSE' && attempt < maxAttempts) {
+        attempt++;
+        srv.listen(port + attempt);
+      } else {
+        srv.removeListener('error', onError);
+        srv.removeListener('listening', onListening);
+        reject(err);
+      }
+    }
+    function onListening() {
+      srv.removeListener('error', onError);
+      resolve(srv.address().port);
+    }
+    srv.on('error', onError);
+    srv.once('listening', onListening);
+    srv.listen(port);
+  });
+}
+
 module.exports = {
   HUB_DIR,
   HUB_LOCK_PATH,
@@ -463,4 +492,5 @@ module.exports = {
   getHubStatus,
   handleHubRoutes,
   startHubMonitor,
+  tryListen,
 };

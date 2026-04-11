@@ -248,28 +248,6 @@ const server = http.createServer((clientReq, clientRes) => {
   });
 });
 
-// ── Port scanner ──
-function tryListen(srv, port, maxAttempts) {
-  return new Promise((resolve, reject) => {
-    let attempt = 0;
-    function onError(err) {
-      if (err.code === 'EADDRINUSE' && attempt < maxAttempts) {
-        attempt++;
-        srv.listen(port + attempt);
-      } else {
-        srv.removeListener('listening', onListening);
-        reject(err);
-      }
-    }
-    function onListening() {
-      srv.removeListener('error', onError);
-      resolve(srv.address().port);
-    }
-    srv.on('error', onError);
-    srv.once('listening', onListening);
-    srv.listen(port);
-  });
-}
 
 // ── Spawn Claude Code with proxy env ──
 function spawnClaude(port, args) {
@@ -416,10 +394,34 @@ async function startServer() {
   await restoreFromLogs();
   warmUpCosts();
 
-  // Hub mode: no port retry — EADDRINUSE means another hub won the race.
-  // Claude mode (with --port, standalone): retry up to 10 ports.
+  // Claude mode (with --port, standalone): scan up to 10 ports.
+  // Hub mode: fixed port, but retry if old hub is still releasing it (race with idle shutdown).
+  // EADDRINUSE in hub mode usually means the previous hub process hasn't fully exited yet —
+  // port release takes a few ms after process.exit(). Retry up to 5s before giving up.
   const maxAttempts = (claudeMode && !hubMode) ? 10 : 0;
-  const actualPort = await tryListen(server, config.PORT, maxAttempts);
+  let actualPort;
+  if (hubMode) {
+    const HUB_BIND_RETRIES = 5;
+    const HUB_BIND_DELAY_MS = 1000;
+    for (let i = 0; i <= HUB_BIND_RETRIES; i++) {
+      try {
+        actualPort = await hub.tryListen(server, config.PORT, 0);
+        break;
+      } catch (err) {
+        if (err.code !== 'EADDRINUSE' || i === HUB_BIND_RETRIES) {
+          if (err.code === 'EADDRINUSE') {
+            // Log the recovery hint to hub.log (console.error → stderr → hub.log).
+            // Prefixed with "Error:" so the client's /error|EADDRINUSE/i filter picks it up.
+            console.error(`Error: port ${config.PORT} still occupied after ${HUB_BIND_RETRIES}s — if a previous ccxray is stuck, run: kill $(lsof -t -i:${config.PORT})`);
+          }
+          throw err;
+        }
+        await new Promise(r => setTimeout(r, HUB_BIND_DELAY_MS));
+      }
+    }
+  } else {
+    actualPort = await hub.tryListen(server, config.PORT, maxAttempts);
+  }
   rebuildIndexHTML(actualPort);
 
   // Hub mode only: write lockfile as readiness signal, start client lifecycle
